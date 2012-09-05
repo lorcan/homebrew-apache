@@ -5,35 +5,16 @@ class ModSuexec < Formula
   homepage 'http://httpd.apache.org/docs/current/suexec.html'
   sha1 '766cd0843050a8dfb781e48b976f3ba6ebcf8696'
 
+  depends_on :libtool
+
+  def apr_bin
+    superbin or "/usr/bin"
+  end
+
   def install
     if MacOS.mountain_lion?
-      # Force this formula to use OS X's built-in apr-1-config
-      ENV['HOMEBREW_CCCFG'] = ENV['HOMEBREW_CCCFG'].delete "a"
-      # Force the toolchain reported by apr-1-config
-      ENV['CC'] = "/Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.8.xctoolchain/usr/bin/cc"
-      ENV['CPP'] = ENV['CC'] + " -E"
-      # This formula must be built with the compiler at the same path as `apr-1-config --cc`
-      # (Other workarounds, like HOMEBREW_CCCFG containing 'a', do not seem to work here)
-      unless File.exists?('/Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.8.xctoolchain/usr/bin/cc')
-        abort <<-EOS
-
-ERROR: An OS X bug exists that requires the compiler to be at
-/Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.8.xctoolchain/usr/bin/cc
-
-If you have Xcode installed, create a symbolic link to the correct location:
-ln -s /Applications/Xcode.app/Contents/Developer/Toolchains/{XcodeDefault,OSX10.8}.xctoolchain
-(sudo might be needed if you downloaded Xcode from the App Store)
-
-If you do not have Xcode installed, create a fake OSX10.8.xctoolchain directory pointing to system
-folder that contain the compilers and libraries needed:
-mkdir -p /Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.8.xctoolchain/usr
-ln -s /usr/bin /Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.8.xctoolchain/usr/bin
-ln -s /usr/include /Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.8.xctoolchain/usr/include
-ln -s /usr/lib /Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.8.xctoolchain/usr/lib
-ln -s /usr/libexec /Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.8.xctoolchain/usr/libexec
-ln -s /usr/share /Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.8.xctoolchain/usr/share
-EOS
-      end
+      # Fix compatibility with compiler being in a different location than the compiler apr-1-config was built with
+      ENV['LTFLAGS'] = '--tag cc'
     end
     suexec_userdir   = ENV['SUEXEC_USERDIR']  || 'Sites'
     suexec_docroot   = ENV['SUEXEC_DOCROOT']  || '/'
@@ -55,7 +36,8 @@ EOS
       "--with-suexec-uidmin=#{suexec_uidmin.to_i}",
       "--with-suexec-gidmin=#{suexec_gidmin.to_i}",
       "--with-suexec-logfile=#{logfile}",
-      "--with-suexec-safepath=#{suexec_safepath}"
+      "--with-suexec-safepath=#{suexec_safepath}",
+      "--with-apr=#{apr_bin}"
     system "make"
     libexec.install 'modules/generators/.libs/mod_suexec.so'
     libexec.install 'support/suexec'
